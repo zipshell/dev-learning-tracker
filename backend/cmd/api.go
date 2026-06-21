@@ -7,10 +7,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5"
+	repo "github.com/zipshell/dev-learning-tracker/internal/adapters/postgresql/sqlc"
+	"github.com/zipshell/dev-learning-tracker/internal/entries"
+	"github.com/zipshell/dev-learning-tracker/internal/folders"
 )
 
 type application struct {
 	config config
+	db     *pgx.Conn
 }
 
 type config struct {
@@ -41,7 +46,14 @@ func (app *application) mount() http.Handler {
 		w.Write([]byte("Healthy!"))
 	})
 
-	// http.ListenAndServe(":3333", r)
+	folderService := folders.NewService(repo.New(app.db))
+	folderHandler := folders.NewHandler(folderService)
+	r.Get("/folders/{user_id}", folderHandler.ListFoldersByUserId)
+	r.Post("/folders", folderHandler.ListFoldersByUserId)
+
+	entryService := entries.NewEntryService(repo.New(app.db))
+	entryHandler := entries.NewEntryHandler(entryService)
+	r.Post("/entries", entryHandler.CreateEntry)
 
 	return r
 }
