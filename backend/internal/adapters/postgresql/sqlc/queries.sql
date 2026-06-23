@@ -40,3 +40,35 @@ SELECT * FROM entries WHERE entries.id = $1;
 INSERT INTO entries (name, content, folder_id)
 VALUES ($1, $2, $3)
 RETURNING *;
+
+-- name: CreateRefreshToken :one
+INSERT INTO refresh_tokens (token, user_id)
+VALUES ($1, $2)
+RETURNING *;
+
+-- name: UpdateRefreshToken :one
+UPDATE refresh_tokens
+SET token = $1,
+    expiration = $2
+WHERE id = $3
+RETURNING *;
+
+-- name: FindUserByEmail :one
+SELECT *
+FROM users
+WHERE email = $1;
+
+-- name: FindRefreshTokenByToken :one
+SELECT *
+FROM refresh_tokens
+WHERE token = $1;
+
+-- name: FindRefreshTokensByUserId :many
+SELECT *
+FROM refresh_tokens
+WHERE user_id = $1
+ORDER BY expiration ASC;
+
+-- name: DeleteRefreshTokensByIds :exec
+DELETE FROM refresh_tokens
+WHERE id = ANY($1::bigint[]);

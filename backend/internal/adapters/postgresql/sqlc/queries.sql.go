@@ -86,6 +86,30 @@ func (q *Queries) CreateFolder(ctx context.Context, arg CreateFolderParams) (Fol
 	return i, err
 }
 
+const createRefreshToken = `-- name: CreateRefreshToken :one
+INSERT INTO refresh_tokens (token, user_id)
+VALUES ($1, $2)
+RETURNING id, user_id, token, expiration, created_at
+`
+
+type CreateRefreshTokenParams struct {
+	Token  string `json:"token"`
+	UserID int64  `json:"user_id"`
+}
+
+func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, createRefreshToken, arg.Token, arg.UserID)
+	var i RefreshToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.Expiration,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, password)
 VALUES ($1, $2)
@@ -107,6 +131,16 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const deleteRefreshTokensByIds = `-- name: DeleteRefreshTokensByIds :exec
+DELETE FROM refresh_tokens
+WHERE id = ANY($1::bigint[])
+`
+
+func (q *Queries) DeleteRefreshTokensByIds(ctx context.Context, dollar_1 []int64) error {
+	_, err := q.db.Exec(ctx, deleteRefreshTokensByIds, dollar_1)
+	return err
 }
 
 const findEntryById = `-- name: FindEntryById :one
@@ -141,6 +175,76 @@ func (q *Queries) FindFolderById(ctx context.Context, id int64) (Folder, error) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ParentFolderID,
+	)
+	return i, err
+}
+
+const findRefreshTokenByToken = `-- name: FindRefreshTokenByToken :one
+SELECT id, user_id, token, expiration, created_at
+FROM refresh_tokens
+WHERE token = $1
+`
+
+func (q *Queries) FindRefreshTokenByToken(ctx context.Context, token string) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, findRefreshTokenByToken, token)
+	var i RefreshToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.Expiration,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const findRefreshTokensByUserId = `-- name: FindRefreshTokensByUserId :many
+SELECT id, user_id, token, expiration, created_at
+FROM refresh_tokens
+WHERE user_id = $1
+ORDER BY expiration ASC
+`
+
+func (q *Queries) FindRefreshTokensByUserId(ctx context.Context, userID int64) ([]RefreshToken, error) {
+	rows, err := q.db.Query(ctx, findRefreshTokensByUserId, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RefreshToken
+	for rows.Next() {
+		var i RefreshToken
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Token,
+			&i.Expiration,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const findUserByEmail = `-- name: FindUserByEmail :one
+SELECT id, email, password, created_at
+FROM users
+WHERE email = $1
+`
+
+func (q *Queries) FindUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRow(ctx, findUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Password,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -246,4 +350,31 @@ func (q *Queries) ListFoldersByUserId(ctx context.Context, userID int64) ([]List
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateRefreshToken = `-- name: UpdateRefreshToken :one
+UPDATE refresh_tokens
+SET token = $1,
+    expiration = $2
+WHERE id = $3
+RETURNING id, user_id, token, expiration, created_at
+`
+
+type UpdateRefreshTokenParams struct {
+	Token      string             `json:"token"`
+	Expiration pgtype.Timestamptz `json:"expiration"`
+	ID         int64              `json:"id"`
+}
+
+func (q *Queries) UpdateRefreshToken(ctx context.Context, arg UpdateRefreshTokenParams) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, updateRefreshToken, arg.Token, arg.Expiration, arg.ID)
+	var i RefreshToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.Expiration,
+		&i.CreatedAt,
+	)
+	return i, err
 }

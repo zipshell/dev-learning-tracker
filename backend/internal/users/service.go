@@ -14,7 +14,7 @@ import (
 )
 
 type UserService interface {
-	CreateUser(ctx context.Context, newUser repo.CreateUserParams) (UserWithToken, error)
+	CreateUser(ctx context.Context, newUser repo.CreateUserParams) (Tokens, error)
 }
 
 func NewUserService(db *pgx.Conn) UserService {
@@ -30,16 +30,18 @@ type svc struct {
 	db *pgx.Conn
 }
 
-type UserWithToken struct {
+type Tokens struct {
 	*repo.User   `json:"user"`
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 }
 
-func (s *svc) CreateUser(ctx context.Context, newUser repo.CreateUserParams) (UserWithToken, error) {
+const maxRefreshTokens = 3
+
+func (s *svc) CreateUser(ctx context.Context, newUser repo.CreateUserParams) (Tokens, error) {
 	tx, err := s.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return UserWithToken{}, err
+		return Tokens{}, err
 	}
 
 	defer func() {
@@ -50,7 +52,7 @@ func (s *svc) CreateUser(ctx context.Context, newUser repo.CreateUserParams) (Us
 
 	hashedPassword, err := hashPassword(newUser.Password)
 	if err != nil {
-		return UserWithToken{}, err
+		return Tokens{}, err
 	}
 
 	q := repo.New(tx)
@@ -58,13 +60,34 @@ func (s *svc) CreateUser(ctx context.Context, newUser repo.CreateUserParams) (Us
 	newUser.Password = hashedPassword
 	newUserCreation, err := q.CreateUser(ctx, newUser)
 	if err != nil {
-		return UserWithToken{}, fmt.Errorf("New user creation failed in write to db step")
+		return Tokens{}, fmt.Errorf("New user creation failed in write to db step")
+	}
+
+	existingRefreshToken, err := q.FindRefreshTokensByUserId(ctx, newUserCreation.ID)
+	if err != nil && err != pgx.ErrNoRows {
+		return Tokens{}, fmt.Errorf("Failed querying tokens table")
+	}
+
+	if len(existingRefreshToken) >= maxRefreshTokens {
+		redundantCount := len(existingRefreshToken) - maxRefreshTokens + 1
+		tokensToDelete := existingRefreshToken[:redundantCount]
+
+		// Extract IDs
+		tokenIDs := make([]int64, len(tokensToDelete))
+		for i, token := range tokensToDelete {
+			tokenIDs[i] = token.ID
+		}
+
+		err = q.DeleteRefreshTokensByIds(ctx, tokenIDs)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 
 	newRefreshToken, err := tokens.GenerateOpaqueToken()
 	if err != nil {
 		log.Printf("Generate Token failed: %v", err)
-		return UserWithToken{}, fmt.Errorf("create refresh token: %w", err)
+		return Tokens{}, fmt.Errorf("create refresh token: %w", err)
 	}
 
 	newTokenCreation, err := q.CreateRefreshToken(ctx, repo.CreateRefreshTokenParams{
@@ -73,11 +96,11 @@ func (s *svc) CreateUser(ctx context.Context, newUser repo.CreateUserParams) (Us
 	})
 	if err != nil {
 		log.Printf("Inserting refresh token to database failed: %v", err)
-		return UserWithToken{}, fmt.Errorf("create refresh token: %w", err)
+		return Tokens{}, fmt.Errorf("create refresh token: %w", err)
 	}
 
 	if err = tx.Commit(ctx); err != nil {
-		return UserWithToken{}, err
+		return Tokens{}, err
 	}
 
 	secret := env.GetString("JWT_SECRET", "random string")
@@ -85,11 +108,10 @@ func (s *svc) CreateUser(ctx context.Context, newUser repo.CreateUserParams) (Us
 	newJwt, err := tokens.CreateJwt([]byte(secret), newUserCreation.ID)
 	if err != nil {
 		log.Printf("CreateToken failed: %v", err)
-		return UserWithToken{}, fmt.Errorf("create access token: %w", err)
+		return Tokens{}, fmt.Errorf("create access token: %w", err)
 	}
 
-	return UserWithToken{
-		User:         &newUserCreation,
+	return Tokens{
 		AccessToken:  newJwt,
 		RefreshToken: newTokenCreation.Token,
 	}, nil

@@ -9,8 +9,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
 	repo "github.com/zipshell/dev-learning-tracker/internal/adapters/postgresql/sqlc"
+	"github.com/zipshell/dev-learning-tracker/internal/auth"
 	"github.com/zipshell/dev-learning-tracker/internal/entries"
 	"github.com/zipshell/dev-learning-tracker/internal/folders"
+	"github.com/zipshell/dev-learning-tracker/internal/users"
 )
 
 type application struct {
@@ -54,6 +56,14 @@ func (app *application) mount() http.Handler {
 	entryService := entries.NewEntryService(repo.New(app.db))
 	entryHandler := entries.NewEntryHandler(entryService)
 	r.Post("/entries", entryHandler.CreateEntry)
+
+	userService := users.NewUserService(app.db)
+	userHandler := users.NewUserHandler(userService)
+	r.Post("/users", userHandler.CreateUser)
+
+	authService := auth.NewAuthService(repo.New(app.db))
+	authHandler := auth.NewAuthHandler(authService)
+	r.Post("/login", authHandler.Login)
 
 	return r
 }
