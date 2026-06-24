@@ -41,16 +41,9 @@ INSERT INTO entries (name, content, folder_id)
 VALUES ($1, $2, $3)
 RETURNING *;
 
--- name: CreateRefreshToken :one
-INSERT INTO refresh_tokens (token, user_id)
+-- name: CreateSession :one
+INSERT INTO sessions (token, user_id)
 VALUES ($1, $2)
-RETURNING *;
-
--- name: UpdateRefreshToken :one
-UPDATE refresh_tokens
-SET token = $1,
-    expiration = $2
-WHERE id = $3
 RETURNING *;
 
 -- name: FindUserByEmail :one
@@ -58,17 +51,21 @@ SELECT *
 FROM users
 WHERE email = $1;
 
--- name: FindRefreshTokenByToken :one
+-- name: FindSessionByToken :one
 SELECT *
-FROM refresh_tokens
+FROM sessions
 WHERE token = $1;
 
--- name: FindRefreshTokensByUserId :many
+-- name: FindSessionsByUserId :many
 SELECT *
-FROM refresh_tokens
+FROM sessions
 WHERE user_id = $1
-ORDER BY expiration ASC;
+ORDER BY expired_at ASC;
 
--- name: DeleteRefreshTokensByIds :exec
-DELETE FROM refresh_tokens
+-- name: DeleteSessionsByIds :exec
+DELETE FROM sessions
 WHERE id = ANY($1::bigint[]);
+
+-- name: DeleteExpiredSessions :exec
+DELETE FROM sessions
+WHERE expired_at < NOW();

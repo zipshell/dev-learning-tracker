@@ -51,7 +51,7 @@ func (app *application) mount() http.Handler {
 	folderService := folders.NewService(repo.New(app.db))
 	folderHandler := folders.NewHandler(folderService)
 	r.Get("/folders/{user_id}", folderHandler.ListFoldersByUserId)
-	r.Post("/folders", folderHandler.ListFoldersByUserId)
+	r.Post("/folders", folderHandler.CreateFolder)
 
 	entryService := entries.NewEntryService(repo.New(app.db))
 	entryHandler := entries.NewEntryHandler(entryService)
@@ -63,7 +63,9 @@ func (app *application) mount() http.Handler {
 
 	authService := auth.NewAuthService(repo.New(app.db))
 	authHandler := auth.NewAuthHandler(authService)
-	r.Post("/login", authHandler.Login)
+	r.Route("/auth", func(r chi.Router) {
+		r.Post("/login", authHandler.Login)
+	})
 
 	return r
 }

@@ -58,5 +58,17 @@ func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), status)
 		return
 	}
-	jsonutil.Write(w, http.StatusOK, response)
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session",
+		Value:    response.SessionToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  response.ExpiredAt.Time,
+	})
+	jsonutil.Write(w, http.StatusOK, map[string]bool{
+		"success": true,
+	})
 }

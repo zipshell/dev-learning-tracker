@@ -33,12 +33,12 @@ type Folder struct {
 	ParentFolderID pgtype.Int8        `json:"parent_folder_id"`
 }
 
-type RefreshToken struct {
-	ID         int64              `json:"id"`
-	UserID     int64              `json:"user_id"`
-	Token      string             `json:"token"`
-	Expiration pgtype.Timestamptz `json:"expiration"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+type Session struct {
+	ID        int64              `json:"id"`
+	UserID    int64              `json:"user_id"`
+	Token     string             `json:"token"`
+	ExpiredAt pgtype.Timestamptz `json:"expired_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type Tag struct {

@@ -12,18 +12,18 @@ type Querier interface {
 	AssignFolderToUser(ctx context.Context, arg AssignFolderToUserParams) (UserFolder, error)
 	CreateEntry(ctx context.Context, arg CreateEntryParams) (Entry, error)
 	CreateFolder(ctx context.Context, arg CreateFolderParams) (Folder, error)
-	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
+	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
-	DeleteRefreshTokensByIds(ctx context.Context, dollar_1 []int64) error
+	DeleteExpiredSessions(ctx context.Context) error
+	DeleteSessionsByIds(ctx context.Context, dollar_1 []int64) error
 	FindEntryById(ctx context.Context, id int64) (Entry, error)
 	FindFolderById(ctx context.Context, id int64) (Folder, error)
-	FindRefreshTokenByToken(ctx context.Context, token string) (RefreshToken, error)
-	FindRefreshTokensByUserId(ctx context.Context, userID int64) ([]RefreshToken, error)
+	FindSessionByToken(ctx context.Context, token string) (Session, error)
+	FindSessionsByUserId(ctx context.Context, userID int64) ([]Session, error)
 	FindUserByEmail(ctx context.Context, email string) (User, error)
 	FindUserById(ctx context.Context, id int64) (User, error)
 	ListEntriesByFolderId(ctx context.Context, folderID int64) ([]Entry, error)
 	ListFoldersByUserId(ctx context.Context, userID int64) ([]ListFoldersByUserIdRow, error)
-	UpdateRefreshToken(ctx context.Context, arg UpdateRefreshTokenParams) (RefreshToken, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -2,6 +2,7 @@ package users
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"net/mail"
@@ -50,10 +51,16 @@ func (h *handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	newUser, err := h.service.CreateUser(r.Context(), params)
+	err := h.service.CreateUser(r.Context(), params)
 	if err != nil {
+		if errors.Is(err, ErrEmailAlreadyExists) {
+			http.Error(w, "email already exists", http.StatusConflict)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	jsonutil.Write(w, http.StatusOK, newUser)
+	jsonutil.Write(w, http.StatusOK, map[string]bool{
+		"success": true,
+	})
 }

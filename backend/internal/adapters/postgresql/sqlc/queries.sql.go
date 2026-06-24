@@ -86,25 +86,25 @@ func (q *Queries) CreateFolder(ctx context.Context, arg CreateFolderParams) (Fol
 	return i, err
 }
 
-const createRefreshToken = `-- name: CreateRefreshToken :one
-INSERT INTO refresh_tokens (token, user_id)
+const createSession = `-- name: CreateSession :one
+INSERT INTO sessions (token, user_id)
 VALUES ($1, $2)
-RETURNING id, user_id, token, expiration, created_at
+RETURNING id, user_id, token, expired_at, created_at
 `
 
-type CreateRefreshTokenParams struct {
+type CreateSessionParams struct {
 	Token  string `json:"token"`
 	UserID int64  `json:"user_id"`
 }
 
-func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error) {
-	row := q.db.QueryRow(ctx, createRefreshToken, arg.Token, arg.UserID)
-	var i RefreshToken
+func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
+	row := q.db.QueryRow(ctx, createSession, arg.Token, arg.UserID)
+	var i Session
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Token,
-		&i.Expiration,
+		&i.ExpiredAt,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -133,13 +133,23 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
-const deleteRefreshTokensByIds = `-- name: DeleteRefreshTokensByIds :exec
-DELETE FROM refresh_tokens
+const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
+DELETE FROM sessions
+WHERE expired_at < NOW()
+`
+
+func (q *Queries) DeleteExpiredSessions(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredSessions)
+	return err
+}
+
+const deleteSessionsByIds = `-- name: DeleteSessionsByIds :exec
+DELETE FROM sessions
 WHERE id = ANY($1::bigint[])
 `
 
-func (q *Queries) DeleteRefreshTokensByIds(ctx context.Context, dollar_1 []int64) error {
-	_, err := q.db.Exec(ctx, deleteRefreshTokensByIds, dollar_1)
+func (q *Queries) DeleteSessionsByIds(ctx context.Context, dollar_1 []int64) error {
+	_, err := q.db.Exec(ctx, deleteSessionsByIds, dollar_1)
 	return err
 }
 
@@ -179,46 +189,46 @@ func (q *Queries) FindFolderById(ctx context.Context, id int64) (Folder, error) 
 	return i, err
 }
 
-const findRefreshTokenByToken = `-- name: FindRefreshTokenByToken :one
-SELECT id, user_id, token, expiration, created_at
-FROM refresh_tokens
+const findSessionByToken = `-- name: FindSessionByToken :one
+SELECT id, user_id, token, expired_at, created_at
+FROM sessions
 WHERE token = $1
 `
 
-func (q *Queries) FindRefreshTokenByToken(ctx context.Context, token string) (RefreshToken, error) {
-	row := q.db.QueryRow(ctx, findRefreshTokenByToken, token)
-	var i RefreshToken
+func (q *Queries) FindSessionByToken(ctx context.Context, token string) (Session, error) {
+	row := q.db.QueryRow(ctx, findSessionByToken, token)
+	var i Session
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Token,
-		&i.Expiration,
+		&i.ExpiredAt,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
-const findRefreshTokensByUserId = `-- name: FindRefreshTokensByUserId :many
-SELECT id, user_id, token, expiration, created_at
-FROM refresh_tokens
+const findSessionsByUserId = `-- name: FindSessionsByUserId :many
+SELECT id, user_id, token, expired_at, created_at
+FROM sessions
 WHERE user_id = $1
-ORDER BY expiration ASC
+ORDER BY expired_at ASC
 `
 
-func (q *Queries) FindRefreshTokensByUserId(ctx context.Context, userID int64) ([]RefreshToken, error) {
-	rows, err := q.db.Query(ctx, findRefreshTokensByUserId, userID)
+func (q *Queries) FindSessionsByUserId(ctx context.Context, userID int64) ([]Session, error) {
+	rows, err := q.db.Query(ctx, findSessionsByUserId, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []RefreshToken
+	var items []Session
 	for rows.Next() {
-		var i RefreshToken
+		var i Session
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
 			&i.Token,
-			&i.Expiration,
+			&i.ExpiredAt,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -350,31 +360,4 @@ func (q *Queries) ListFoldersByUserId(ctx context.Context, userID int64) ([]List
 		return nil, err
 	}
 	return items, nil
-}
-
-const updateRefreshToken = `-- name: UpdateRefreshToken :one
-UPDATE refresh_tokens
-SET token = $1,
-    expiration = $2
-WHERE id = $3
-RETURNING id, user_id, token, expiration, created_at
-`
-
-type UpdateRefreshTokenParams struct {
-	Token      string             `json:"token"`
-	Expiration pgtype.Timestamptz `json:"expiration"`
-	ID         int64              `json:"id"`
-}
-
-func (q *Queries) UpdateRefreshToken(ctx context.Context, arg UpdateRefreshTokenParams) (RefreshToken, error) {
-	row := q.db.QueryRow(ctx, updateRefreshToken, arg.Token, arg.Expiration, arg.ID)
-	var i RefreshToken
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.Token,
-		&i.Expiration,
-		&i.CreatedAt,
-	)
-	return i, err
 }

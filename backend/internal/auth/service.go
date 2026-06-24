@@ -7,8 +7,8 @@ import (
 	"log"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	repo "github.com/zipshell/dev-learning-tracker/internal/adapters/postgresql/sqlc"
-	"github.com/zipshell/dev-learning-tracker/internal/env"
 	"github.com/zipshell/dev-learning-tracker/internal/tokens"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -27,17 +27,17 @@ func NewAuthService(repo repo.Querier) AuthService {
 	}
 }
 
-const maxRefreshTokens = 3
-
 var (
 	ErrUserNotFound      = errors.New("user not found")
 	ErrInvalidCredential = errors.New("invalid credentials")
 )
 
 type Tokens struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	SessionToken string             `json:"session_token"`
+	ExpiredAt    pgtype.Timestamptz `json:"expired_at"`
 }
+
+var maxSessionRecordNumber = 5
 
 func (s *svc) Login(ctx context.Context, userCredentials UserCredentials) (Tokens, error) {
 	existingUserInfo, err := s.repo.FindUserByEmail(ctx, userCredentials.Email)
@@ -52,33 +52,30 @@ func (s *svc) Login(ctx context.Context, userCredentials UserCredentials) (Token
 		return Tokens{}, fmt.Errorf("%w", ErrInvalidCredential)
 	}
 
-	existingRefreshToken, err := s.repo.FindRefreshTokensByUserId(ctx, existingUserInfo.ID)
-	if err != nil && err != pgx.ErrNoRows {
-		return Tokens{}, fmt.Errorf("Failed querying tokens table")
-	}
-	if len(existingRefreshToken) >= maxRefreshTokens {
-		redundantCount := len(existingRefreshToken) - maxRefreshTokens + 1
-		tokensToDelete := existingRefreshToken[:redundantCount]
+	existingSessions, err := s.repo.FindSessionsByUserId(ctx, existingUserInfo.ID)
+	if len(existingSessions) >= maxSessionRecordNumber {
+		redundantSessionCount := len(existingSessions) - maxSessionRecordNumber + 1
+		sessionsToDelete := existingSessions[:redundantSessionCount]
 
-		// Extract IDs
-		tokenIDs := make([]int64, len(tokensToDelete))
-		for i, token := range tokensToDelete {
+		tokenIDs := make([]int64, len(sessionsToDelete))
+		for i, token := range sessionsToDelete {
 			tokenIDs[i] = token.ID
 		}
 
-		err = s.repo.DeleteRefreshTokensByIds(ctx, tokenIDs)
+		err := s.repo.DeleteSessionsByIds(ctx, tokenIDs)
 		if err != nil {
-			log.Println(err)
+			log.Printf("Failed cleaning up old sessions %v", err)
 		}
 	}
-	newRefreshToken, err := tokens.GenerateOpaqueToken()
+
+	newSessionToken, err := tokens.GenerateOpaqueToken()
 	if err != nil {
-		log.Printf("Generate Token failed: %v", err)
-		return Tokens{}, fmt.Errorf("create refresh token: %w", err)
+		log.Printf("Generating Session Token failed: %v", err)
+		return Tokens{}, fmt.Errorf("create session token: %w", err)
 	}
 
-	newRefreshTokenCreation, err := s.repo.CreateRefreshToken(ctx, repo.CreateRefreshTokenParams{
-		Token:  newRefreshToken,
+	newSessionCreation, err := s.repo.CreateSession(ctx, repo.CreateSessionParams{
+		Token:  newSessionToken,
 		UserID: existingUserInfo.ID,
 	})
 	if err != nil {
@@ -86,16 +83,8 @@ func (s *svc) Login(ctx context.Context, userCredentials UserCredentials) (Token
 		return Tokens{}, fmt.Errorf("create refresh token: %w", err)
 	}
 
-	secret := env.GetString("JWT_SECRET", "random string")
-
-	newJwt, err := tokens.CreateJwt([]byte(secret), existingUserInfo.ID)
-	if err != nil {
-		log.Printf("Access token creation failed: %v", err)
-		return Tokens{}, fmt.Errorf("create access token: %w", err)
-	}
-
 	return Tokens{
-		AccessToken:  newJwt,
-		RefreshToken: newRefreshTokenCreation.Token,
+		SessionToken: newSessionCreation.Token,
+		ExpiredAt:    newSessionCreation.ExpiredAt,
 	}, nil
 }
