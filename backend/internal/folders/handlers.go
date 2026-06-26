@@ -2,6 +2,7 @@ package folders
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -24,12 +25,19 @@ func NewHandler(service Service) *handler {
 func (h *handler) ListFoldersByUserId(w http.ResponseWriter, r *http.Request) {
 	userIdString := chi.URLParam(r, "user_id")
 	userId, err := strconv.Atoi(userIdString)
-	if err != nil {
-		log.Fatalf("Invalid user id: %v", err)
+	if err != nil || userId == 0 {
+		jsonutil.Write(w, http.StatusBadRequest, map[string]string{
+			"error": "Invalid request body",
+		})
+		return
 	}
 	folders, err := h.service.ListFoldersByUserId(r.Context(), int64(userId))
 	if err != nil {
 		log.Println(err)
+		if errors.Is(err, ErrFolderListNotFound) {
+			http.NotFound(w, r)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

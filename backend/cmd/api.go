@@ -60,7 +60,7 @@ func (app *application) mount() http.Handler {
 		r.Post("/logout", authHandler.Logout)
 	})
 
-	folderService := folders.NewService(repo.New(app.db))
+	folderService := folders.NewService(app.db)
 	folderHandler := folders.NewHandler(folderService)
 	r.Route("/folders", func(r chi.Router) {
 		r.Use(mw.Auth(authService))

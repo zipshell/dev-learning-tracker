@@ -22,7 +22,8 @@ func Auth(authSvc auth.AuthService) func(http.Handler) http.Handler {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}
-			ctx := context.WithValue(r.Context(), "user", sessionUser)
+			ctx := context.WithValue(r.Context(), "user", sessionUser.User)
+			ctx = context.WithValue(ctx, "session_token", sessionUser.SessionToken)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

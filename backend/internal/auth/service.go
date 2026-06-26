@@ -97,17 +97,19 @@ func (s *svc) Login(ctx context.Context, userCredentials UserCredentials) (Token
 }
 
 func (s *svc) Logout(ctx context.Context) error {
-	userInfoValue := ctx.Value("user")
-	if userInfoValue == nil {
+	value := ctx.Value("session_token")
+	if value == nil {
+		log.Println("No session token found")
 		return nil
 	}
 
-	userInfo, ok := userInfoValue.(UserWithToken)
+	sessionToken, ok := value.(string)
 	if !ok {
+		log.Println("Session token is of invalid type")
 		return nil
 	}
 
-	err := s.repo.DeleteSessionByToken(ctx, userInfo.SessionToken)
+	err := s.repo.DeleteSessionByToken(ctx, sessionToken)
 	if err != nil {
 		log.Printf("failed deleting session cookie: %v", err)
 	}
