@@ -307,6 +307,36 @@ func (q *Queries) FindUserById(ctx context.Context, id int64) (User, error) {
 	return i, err
 }
 
+const findUsersIdsByFolderId = `-- name: FindUsersIdsByFolderId :many
+SELECT id, created_at, user_id, folder_id FROM user_folders
+WHERE user_folders.folder_id = $1
+`
+
+func (q *Queries) FindUsersIdsByFolderId(ctx context.Context, folderID int64) ([]UserFolder, error) {
+	rows, err := q.db.Query(ctx, findUsersIdsByFolderId, folderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UserFolder
+	for rows.Next() {
+		var i UserFolder
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UserID,
+			&i.FolderID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEntriesByFolderId = `-- name: ListEntriesByFolderId :many
 SELECT id, name, content, created_at, updated_at, folder_id 
 FROM entries

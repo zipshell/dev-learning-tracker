@@ -27,6 +27,10 @@ INSERT INTO user_folders (user_id, folder_id)
 VALUES ($1, $2)
 RETURNING *;
 
+-- name: FindUsersIdsByFolderId :many
+SELECT * FROM user_folders
+WHERE user_folders.folder_id = $1;
+
 -- name: ListEntriesByFolderId :many
 SELECT * 
 FROM entries

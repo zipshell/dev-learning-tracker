@@ -24,6 +24,7 @@ type Querier interface {
 	FindSessionsByUserId(ctx context.Context, userID int64) ([]Session, error)
 	FindUserByEmail(ctx context.Context, email string) (User, error)
 	FindUserById(ctx context.Context, id int64) (User, error)
+	FindUsersIdsByFolderId(ctx context.Context, folderID int64) ([]UserFolder, error)
 	ListEntriesByFolderId(ctx context.Context, folderID int64) ([]Entry, error)
 	ListFoldersByUserId(ctx context.Context, userID int64) ([]ListFoldersByUserIdRow, error)
 }
