@@ -56,6 +56,12 @@ SELECT *
 FROM sessions
 WHERE token = $1;
 
+-- name: FindActiveSessionByToken :one
+SELECT *
+FROM sessions
+WHERE token = $1
+  AND expired_at > NOW();
+
 -- name: FindSessionsByUserId :many
 SELECT *
 FROM sessions
@@ -65,6 +71,10 @@ ORDER BY expired_at ASC;
 -- name: DeleteSessionsByIds :exec
 DELETE FROM sessions
 WHERE id = ANY($1::bigint[]);
+
+-- name: DeleteSessionByToken :exec
+DELETE FROM sessions
+WHERE token = $1;
 
 -- name: DeleteExpiredSessions :exec
 DELETE FROM sessions

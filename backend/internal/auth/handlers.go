@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/mail"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/zipshell/dev-learning-tracker/internal/jsonutil"
@@ -68,6 +69,30 @@ func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 		Expires:  response.ExpiredAt.Time,
 	})
+	jsonutil.Write(w, http.StatusOK, map[string]bool{
+		"success": true,
+	})
+}
+
+func (h *handler) Logout(w http.ResponseWriter, r *http.Request) {
+	err := h.service.Logout(r.Context())
+	if err != nil {
+		status := http.StatusInternalServerError
+		http.Error(w, err.Error(), status)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+	})
+
 	jsonutil.Write(w, http.StatusOK, map[string]bool{
 		"success": true,
 	})

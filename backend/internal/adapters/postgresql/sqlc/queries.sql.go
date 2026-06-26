@@ -143,6 +143,16 @@ func (q *Queries) DeleteExpiredSessions(ctx context.Context) error {
 	return err
 }
 
+const deleteSessionByToken = `-- name: DeleteSessionByToken :exec
+DELETE FROM sessions
+WHERE token = $1
+`
+
+func (q *Queries) DeleteSessionByToken(ctx context.Context, token string) error {
+	_, err := q.db.Exec(ctx, deleteSessionByToken, token)
+	return err
+}
+
 const deleteSessionsByIds = `-- name: DeleteSessionsByIds :exec
 DELETE FROM sessions
 WHERE id = ANY($1::bigint[])
@@ -151,6 +161,26 @@ WHERE id = ANY($1::bigint[])
 func (q *Queries) DeleteSessionsByIds(ctx context.Context, dollar_1 []int64) error {
 	_, err := q.db.Exec(ctx, deleteSessionsByIds, dollar_1)
 	return err
+}
+
+const findActiveSessionByToken = `-- name: FindActiveSessionByToken :one
+SELECT id, user_id, token, expired_at, created_at
+FROM sessions
+WHERE token = $1
+  AND expired_at > NOW()
+`
+
+func (q *Queries) FindActiveSessionByToken(ctx context.Context, token string) (Session, error) {
+	row := q.db.QueryRow(ctx, findActiveSessionByToken, token)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.ExpiredAt,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const findEntryById = `-- name: FindEntryById :one

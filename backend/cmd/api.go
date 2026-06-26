@@ -12,6 +12,7 @@ import (
 	"github.com/zipshell/dev-learning-tracker/internal/auth"
 	"github.com/zipshell/dev-learning-tracker/internal/entries"
 	"github.com/zipshell/dev-learning-tracker/internal/folders"
+	mw "github.com/zipshell/dev-learning-tracker/internal/middleware"
 	"github.com/zipshell/dev-learning-tracker/internal/users"
 )
 
@@ -48,15 +49,6 @@ func (app *application) mount() http.Handler {
 		w.Write([]byte("Healthy!"))
 	})
 
-	folderService := folders.NewService(repo.New(app.db))
-	folderHandler := folders.NewHandler(folderService)
-	r.Get("/folders/{user_id}", folderHandler.ListFoldersByUserId)
-	r.Post("/folders", folderHandler.CreateFolder)
-
-	entryService := entries.NewEntryService(repo.New(app.db))
-	entryHandler := entries.NewEntryHandler(entryService)
-	r.Post("/entries", entryHandler.CreateEntry)
-
 	userService := users.NewUserService(app.db)
 	userHandler := users.NewUserHandler(userService)
 	r.Post("/users", userHandler.CreateUser)
@@ -65,6 +57,22 @@ func (app *application) mount() http.Handler {
 	authHandler := auth.NewAuthHandler(authService)
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/login", authHandler.Login)
+		r.Post("/logout", authHandler.Logout)
+	})
+
+	folderService := folders.NewService(repo.New(app.db))
+	folderHandler := folders.NewHandler(folderService)
+	r.Route("/folders", func(r chi.Router) {
+		r.Use(mw.Auth(authService))
+		r.Post("/", folderHandler.CreateFolder)
+		r.Get("/{user_id}", folderHandler.ListFoldersByUserId)
+	})
+
+	entryService := entries.NewEntryService(repo.New(app.db))
+	entryHandler := entries.NewEntryHandler(entryService)
+	r.Route("/entries", func(r chi.Router) {
+		r.Use(mw.Auth(authService))
+		r.Post("/", entryHandler.CreateEntry)
 	})
 
 	return r

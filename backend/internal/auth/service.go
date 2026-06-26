@@ -15,6 +15,8 @@ import (
 
 type AuthService interface {
 	Login(ctx context.Context, userInfo UserCredentials) (Tokens, error)
+	Logout(ctx context.Context) error
+	ValidateSession(ctx context.Context, sessionToken string) (UserWithToken, error)
 }
 
 type svc struct {
@@ -35,6 +37,11 @@ var (
 type Tokens struct {
 	SessionToken string             `json:"session_token"`
 	ExpiredAt    pgtype.Timestamptz `json:"expired_at"`
+}
+
+type UserWithToken struct {
+	User         repo.User
+	SessionToken string
 }
 
 var maxSessionRecordNumber = 5
@@ -86,5 +93,40 @@ func (s *svc) Login(ctx context.Context, userCredentials UserCredentials) (Token
 	return Tokens{
 		SessionToken: newSessionCreation.Token,
 		ExpiredAt:    newSessionCreation.ExpiredAt,
+	}, nil
+}
+
+func (s *svc) Logout(ctx context.Context) error {
+	userInfoValue := ctx.Value("user")
+	if userInfoValue == nil {
+		return nil
+	}
+
+	userInfo, ok := userInfoValue.(UserWithToken)
+	if !ok {
+		return nil
+	}
+
+	err := s.repo.DeleteSessionByToken(ctx, userInfo.SessionToken)
+	if err != nil {
+		log.Printf("failed deleting session cookie: %v", err)
+	}
+	return nil
+}
+
+func (s *svc) ValidateSession(ctx context.Context, sessionToken string) (UserWithToken, error) {
+	existingSession, err := s.repo.FindActiveSessionByToken(ctx, sessionToken)
+	if err != nil {
+		log.Printf("Invalid session token: %v", err)
+		return UserWithToken{}, fmt.Errorf("invalid session token: %w", err)
+	}
+	sessionUser, err := s.repo.FindUserById(ctx, existingSession.UserID)
+	if err != nil {
+		log.Printf("Cannot find user for session token: %v", err)
+		return UserWithToken{}, fmt.Errorf("invalid session token: %w", err)
+	}
+	return UserWithToken{
+		User:         sessionUser,
+		SessionToken: sessionToken,
 	}, nil
 }

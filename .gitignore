@@ -36,6 +36,10 @@ vendor/
 .local
 *.env
 
+# Ignore generated backend diagrams
+/backend/db-schema.png
+/backend/dev-learning-tracker-erd.png
+
 # IDE / editor
 .vscode/
 .idea/

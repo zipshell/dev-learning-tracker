@@ -15,7 +15,9 @@ type Querier interface {
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteExpiredSessions(ctx context.Context) error
+	DeleteSessionByToken(ctx context.Context, token string) error
 	DeleteSessionsByIds(ctx context.Context, dollar_1 []int64) error
+	FindActiveSessionByToken(ctx context.Context, token string) (Session, error)
 	FindEntryById(ctx context.Context, id int64) (Entry, error)
 	FindFolderById(ctx context.Context, id int64) (Folder, error)
 	FindSessionByToken(ctx context.Context, token string) (Session, error)
