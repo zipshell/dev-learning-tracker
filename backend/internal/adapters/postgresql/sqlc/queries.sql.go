@@ -133,6 +133,16 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const deleteEntryById = `-- name: DeleteEntryById :exec
+DELETE FROM entries
+WHERE id = $1
+`
+
+func (q *Queries) DeleteEntryById(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteEntryById, id)
+	return err
+}
+
 const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
 DELETE FROM sessions
 WHERE expired_at < NOW()
@@ -140,6 +150,16 @@ WHERE expired_at < NOW()
 
 func (q *Queries) DeleteExpiredSessions(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, deleteExpiredSessions)
+	return err
+}
+
+const deleteFolderById = `-- name: DeleteFolderById :exec
+DELETE FROM folders
+WHERE id = $1
+`
+
+func (q *Queries) DeleteFolderById(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteFolderById, id)
 	return err
 }
 
@@ -160,6 +180,16 @@ WHERE id = ANY($1::bigint[])
 
 func (q *Queries) DeleteSessionsByIds(ctx context.Context, dollar_1 []int64) error {
 	_, err := q.db.Exec(ctx, deleteSessionsByIds, dollar_1)
+	return err
+}
+
+const deleteUserById = `-- name: DeleteUserById :exec
+DELETE FROM users
+WHERE id = $1
+`
+
+func (q *Queries) DeleteUserById(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteUserById, id)
 	return err
 }
 
@@ -372,8 +402,9 @@ func (q *Queries) ListEntriesByFolderId(ctx context.Context, folderID int64) ([]
 }
 
 const listFoldersByUserId = `-- name: ListFoldersByUserId :many
-SELECT folders.id, name, description, folders.created_at, updated_at, parent_folder_id, user_folders.id, user_folders.created_at, user_id, folder_id 
-FROM folders INNER JOIN user_folders on folders.id = user_folders.folder_id
+SELECT folders.id, name, description, folders.created_at, updated_at, parent_folder_id, user_folders.id, user_folders.created_at, user_id, folder_id
+FROM folders
+INNER JOIN user_folders ON folders.id = user_folders.folder_id
 WHERE user_folders.user_id = $1
 ORDER BY name
 `
@@ -420,4 +451,98 @@ func (q *Queries) ListFoldersByUserId(ctx context.Context, userID int64) ([]List
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateEntryById = `-- name: UpdateEntryById :one
+UPDATE entries
+SET name = $2,
+    content = $3,
+    folder_id = $4
+WHERE id = $1
+RETURNING id, name, content, created_at, updated_at, folder_id
+`
+
+type UpdateEntryByIdParams struct {
+	ID       int64       `json:"id"`
+	Name     string      `json:"name"`
+	Content  pgtype.Text `json:"content"`
+	FolderID int64       `json:"folder_id"`
+}
+
+func (q *Queries) UpdateEntryById(ctx context.Context, arg UpdateEntryByIdParams) (Entry, error) {
+	row := q.db.QueryRow(ctx, updateEntryById,
+		arg.ID,
+		arg.Name,
+		arg.Content,
+		arg.FolderID,
+	)
+	var i Entry
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Content,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.FolderID,
+	)
+	return i, err
+}
+
+const updateFolderById = `-- name: UpdateFolderById :one
+UPDATE folders
+SET name = $2,
+    description = $3,
+    parent_folder_id = $4
+WHERE id = $1
+RETURNING id, name, description, created_at, updated_at, parent_folder_id
+`
+
+type UpdateFolderByIdParams struct {
+	ID             int64       `json:"id"`
+	Name           string      `json:"name"`
+	Description    pgtype.Text `json:"description"`
+	ParentFolderID pgtype.Int8 `json:"parent_folder_id"`
+}
+
+func (q *Queries) UpdateFolderById(ctx context.Context, arg UpdateFolderByIdParams) (Folder, error) {
+	row := q.db.QueryRow(ctx, updateFolderById,
+		arg.ID,
+		arg.Name,
+		arg.Description,
+		arg.ParentFolderID,
+	)
+	var i Folder
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ParentFolderID,
+	)
+	return i, err
+}
+
+const updateUserById = `-- name: UpdateUserById :one
+UPDATE users
+SET email = $2
+WHERE id = $1
+RETURNING id, email, password, created_at
+`
+
+type UpdateUserByIdParams struct {
+	ID    int64  `json:"id"`
+	Email string `json:"email"`
+}
+
+func (q *Queries) UpdateUserById(ctx context.Context, arg UpdateUserByIdParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserById, arg.ID, arg.Email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Password,
+		&i.CreatedAt,
+	)
+	return i, err
 }

@@ -8,9 +8,20 @@ INSERT INTO users (email, password)
 VALUES ($1, $2)
 RETURNING *;
 
+-- name: UpdateUserById :one
+UPDATE users
+SET email = $2
+WHERE id = $1
+RETURNING *;
+
+-- name: DeleteUserById :exec
+DELETE FROM users
+WHERE id = $1;
+
 -- name: ListFoldersByUserId :many
-SELECT * 
-FROM folders INNER JOIN user_folders on folders.id = user_folders.folder_id
+SELECT *
+FROM folders
+INNER JOIN user_folders ON folders.id = user_folders.folder_id
 WHERE user_folders.user_id = $1
 ORDER BY name;
 
@@ -21,6 +32,18 @@ SELECT * FROM folders WHERE id = $1;
 INSERT INTO folders (name, description, parent_folder_id)
 VALUES ($1, $2, $3)
 RETURNING *;
+
+-- name: UpdateFolderById :one
+UPDATE folders
+SET name = $2,
+    description = $3,
+    parent_folder_id = $4
+WHERE id = $1
+RETURNING *;
+
+-- name: DeleteFolderById :exec
+DELETE FROM folders
+WHERE id = $1;
 
 -- name: AssignFolderToUser :one
 INSERT INTO user_folders (user_id, folder_id)
@@ -44,6 +67,18 @@ SELECT * FROM entries WHERE entries.id = $1;
 INSERT INTO entries (name, content, folder_id)
 VALUES ($1, $2, $3)
 RETURNING *;
+
+-- name: UpdateEntryById :one
+UPDATE entries
+SET name = $2,
+    content = $3,
+    folder_id = $4
+WHERE id = $1
+RETURNING *;
+
+-- name: DeleteEntryById :exec
+DELETE FROM entries
+WHERE id = $1;
 
 -- name: CreateSession :one
 INSERT INTO sessions (token, user_id)

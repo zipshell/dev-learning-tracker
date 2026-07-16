@@ -51,7 +51,6 @@ func (app *application) mount() http.Handler {
 
 	userService := users.NewUserService(app.db)
 	userHandler := users.NewUserHandler(userService)
-	r.Post("/users", userHandler.CreateUser)
 
 	authService := auth.NewAuthService(repo.New(app.db))
 	authHandler := auth.NewAuthHandler(authService)
@@ -60,12 +59,22 @@ func (app *application) mount() http.Handler {
 		r.Post("/logout", authHandler.Logout)
 	})
 
+	r.Route("/users", func(r chi.Router) {
+		r.Post("/users", userHandler.CreateUser)
+		r.Use(mw.Auth(authService))
+		r.Get("/{user_id}", userHandler.GetUserInfo)
+		r.Put("/{user_id}", userHandler.UpdateUserInfo)
+		r.Delete("/{user_id}", userHandler.DeleteUser)
+	})
+
 	folderService := folders.NewService(app.db)
 	folderHandler := folders.NewHandler(folderService)
 	r.Route("/folders", func(r chi.Router) {
 		r.Use(mw.Auth(authService))
 		r.Post("/", folderHandler.CreateFolder)
 		r.Get("/{user_id}", folderHandler.ListFoldersByUserId)
+		r.Patch("/{folder_id}", folderHandler.UpdateFolder)
+		r.Delete("/{folder_id}", folderHandler.DeleteFolder)
 	})
 
 	entryService := entries.NewEntryService(repo.New(app.db))
@@ -73,6 +82,9 @@ func (app *application) mount() http.Handler {
 	r.Route("/entries", func(r chi.Router) {
 		r.Use(mw.Auth(authService))
 		r.Post("/", entryHandler.CreateEntry)
+		r.Get("/{user_id}", entryHandler.ListEntriesByUserId)
+		r.Patch("/{entry_id}", entryHandler.UpdateEntry)
+		r.Delete("/{entry_id}", entryHandler.DeleteEntry)
 	})
 
 	return r

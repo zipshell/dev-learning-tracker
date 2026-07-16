@@ -64,3 +64,49 @@ func (h *handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 	})
 }
+
+func (h *handler) GetUserInfo(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := h.service.GetUserInfo(r.Context())
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	jsonutil.Write(w, http.StatusOK, userInfo)
+}
+
+func (h *handler) UpdateUserInfo(w http.ResponseWriter, r *http.Request) {
+	var params repo.UpdateUserByIdParams
+
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		jsonutil.Write(w, http.StatusBadRequest, map[string]string{
+			"error": "Invalid request body",
+		})
+		return
+	}
+
+	updateResult, err := h.service.UpdateUserInfo(r.Context(), params)
+	if err != nil {
+		if errors.Is(err, ErrNoPermission) || errors.Is(err, ErrUserNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	jsonutil.Write(w, http.StatusOK, updateResult)
+}
+
+func (h *handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	err := h.service.DeleteUser(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	jsonutil.Write(w, http.StatusOK, map[string]bool{
+		"success": true,
+	})
+}

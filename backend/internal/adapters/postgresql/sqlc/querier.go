@@ -14,9 +14,12 @@ type Querier interface {
 	CreateFolder(ctx context.Context, arg CreateFolderParams) (Folder, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteEntryById(ctx context.Context, id int64) error
 	DeleteExpiredSessions(ctx context.Context) error
+	DeleteFolderById(ctx context.Context, id int64) error
 	DeleteSessionByToken(ctx context.Context, token string) error
 	DeleteSessionsByIds(ctx context.Context, dollar_1 []int64) error
+	DeleteUserById(ctx context.Context, id int64) error
 	FindActiveSessionByToken(ctx context.Context, token string) (Session, error)
 	FindEntryById(ctx context.Context, id int64) (Entry, error)
 	FindFolderById(ctx context.Context, id int64) (Folder, error)
@@ -27,6 +30,9 @@ type Querier interface {
 	FindUsersIdsByFolderId(ctx context.Context, folderID int64) ([]UserFolder, error)
 	ListEntriesByFolderId(ctx context.Context, folderID int64) ([]Entry, error)
 	ListFoldersByUserId(ctx context.Context, userID int64) ([]ListFoldersByUserIdRow, error)
+	UpdateEntryById(ctx context.Context, arg UpdateEntryByIdParams) (Entry, error)
+	UpdateFolderById(ctx context.Context, arg UpdateFolderByIdParams) (Folder, error)
+	UpdateUserById(ctx context.Context, arg UpdateUserByIdParams) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)
