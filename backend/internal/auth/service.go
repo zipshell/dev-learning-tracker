@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	repo "github.com/zipshell/dev-learning-tracker/internal/adapters/postgresql/sqlc"
+	"github.com/zipshell/dev-learning-tracker/internal/contextkeys"
 	"github.com/zipshell/dev-learning-tracker/internal/tokens"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -60,6 +61,9 @@ func (s *svc) Login(ctx context.Context, userCredentials UserCredentials) (Token
 	}
 
 	existingSessions, err := s.repo.FindSessionsByUserId(ctx, existingUserInfo.ID)
+	if err != nil {
+		return Tokens{}, fmt.Errorf("find sessions by user id: %w", err)
+	}
 	if len(existingSessions) >= maxSessionRecordNumber {
 		redundantSessionCount := len(existingSessions) - maxSessionRecordNumber + 1
 		sessionsToDelete := existingSessions[:redundantSessionCount]
@@ -97,7 +101,7 @@ func (s *svc) Login(ctx context.Context, userCredentials UserCredentials) (Token
 }
 
 func (s *svc) Logout(ctx context.Context) error {
-	value := ctx.Value("session_token")
+	value := ctx.Value(contextkeys.SessionTokenKey)
 	if value == nil {
 		log.Println("No session token found")
 		return nil

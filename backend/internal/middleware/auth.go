@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/zipshell/dev-learning-tracker/internal/auth"
+	"github.com/zipshell/dev-learning-tracker/internal/contextkeys"
 )
 
 func Auth(authSvc auth.AuthService) func(http.Handler) http.Handler {
@@ -22,8 +23,8 @@ func Auth(authSvc auth.AuthService) func(http.Handler) http.Handler {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}
-			ctx := context.WithValue(r.Context(), "user", sessionUser.User)
-			ctx = context.WithValue(ctx, "session_token", sessionUser.SessionToken)
+			ctx := context.WithValue(r.Context(), contextkeys.UserKey, sessionUser.User)
+			ctx = context.WithValue(ctx, contextkeys.SessionTokenKey, sessionUser.SessionToken)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

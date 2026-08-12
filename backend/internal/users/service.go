@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	repo "github.com/zipshell/dev-learning-tracker/internal/adapters/postgresql/sqlc"
+	"github.com/zipshell/dev-learning-tracker/internal/contextkeys"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -64,7 +65,9 @@ func (s *svc) CreateUser(ctx context.Context, newUser repo.CreateUserParams) err
 
 	defer func() {
 		if err != nil {
-			tx.Rollback(ctx)
+			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
+				log.Printf("rollback failed: %v", rollbackErr)
+			}
 		}
 	}()
 
@@ -83,7 +86,7 @@ func (s *svc) CreateUser(ctx context.Context, newUser repo.CreateUserParams) err
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return fmt.Errorf("%w", ErrEmailAlreadyExists)
 		}
-		return fmt.Errorf("New user creation failed in write to db step")
+		return fmt.Errorf("new user creation failed in write to db step")
 	}
 
 	if err = tx.Commit(ctx); err != nil {
@@ -94,7 +97,7 @@ func (s *svc) CreateUser(ctx context.Context, newUser repo.CreateUserParams) err
 }
 
 func (s *svc) GetUserInfo(ctx context.Context, userId int64) (UserInfo, error) {
-	value := ctx.Value("user")
+	value := ctx.Value(contextkeys.UserKey)
 	if value == nil {
 		log.Println("No user info found that matches the session")
 		return UserInfo{}, fmt.Errorf("%w", ErrUserNotFound)
@@ -114,7 +117,7 @@ func (s *svc) GetUserInfo(ctx context.Context, userId int64) (UserInfo, error) {
 }
 
 func (s *svc) UpdateUserInfo(ctx context.Context, updateInfo repo.UpdateUserByIdParams) (UserInfo, error) {
-	value := ctx.Value("user")
+	value := ctx.Value(contextkeys.UserKey)
 	if value == nil {
 		log.Println("No user info found that matches the session")
 		return UserInfo{}, fmt.Errorf("%w", ErrUserNotFound)
@@ -145,7 +148,7 @@ func (s *svc) UpdateUserInfo(ctx context.Context, updateInfo repo.UpdateUserById
 }
 
 func (s *svc) DeleteUser(ctx context.Context) error {
-	value := ctx.Value("user")
+	value := ctx.Value(contextkeys.UserKey)
 	if value == nil {
 		log.Println("No user info found that matches the session")
 		return fmt.Errorf("%w", ErrUserNotFound)

@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	repo "github.com/zipshell/dev-learning-tracker/internal/adapters/postgresql/sqlc"
+	"github.com/zipshell/dev-learning-tracker/internal/contextkeys"
 )
 
 type EntryService interface {
@@ -24,16 +25,16 @@ func NewEntryService(repo repo.Querier) EntryService {
 
 func (s *svc) CreateEntry(ctx context.Context, newEntry repo.CreateEntryParams) (repo.Entry, error) {
 	if newEntry.Name == "" {
-		return repo.Entry{}, fmt.Errorf("Entry's name is required")
+		return repo.Entry{}, fmt.Errorf("entry name is required")
 	}
 
 	if newEntry.FolderID == 0 {
-		return repo.Entry{}, fmt.Errorf("Entry's folder_id is required")
+		return repo.Entry{}, fmt.Errorf("entry folder_id is required")
 	}
 
-	value := ctx.Value("user")
+	value := ctx.Value(contextkeys.UserKey)
 	if value == nil {
-		return repo.Entry{}, fmt.Errorf("No user session found")
+		return repo.Entry{}, fmt.Errorf("no user session found")
 	}
 
 	userInfo, ok := value.(repo.User)

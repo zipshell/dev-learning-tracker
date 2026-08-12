@@ -46,7 +46,9 @@ func (app *application) mount() http.Handler {
 	r.Use(middleware.Timeout(60 * time.Second))
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Healthy!"))
+		if _, err := w.Write([]byte("Healthy!")); err != nil {
+			http.Error(w, "failed to write health response", http.StatusInternalServerError)
+		}
 	})
 
 	userService := users.NewUserService(app.db)

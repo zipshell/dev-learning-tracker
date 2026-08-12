@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	repo "github.com/zipshell/dev-learning-tracker/internal/adapters/postgresql/sqlc"
+	"github.com/zipshell/dev-learning-tracker/internal/contextkeys"
 )
 
 type Service interface {
@@ -32,10 +33,10 @@ var (
 )
 
 func (s *svc) ListFoldersByUserId(ctx context.Context, userId int64) ([]repo.ListFoldersByUserIdRow, error) {
-	value := ctx.Value("user")
+	value := ctx.Value(contextkeys.UserKey)
 	if value == nil {
 		log.Println("No user info found that matches the session")
-		return []repo.ListFoldersByUserIdRow{}, fmt.Errorf("No user info found that matches the session")
+		return []repo.ListFoldersByUserIdRow{}, fmt.Errorf("no user info found that matches the session")
 	}
 
 	userInfo, ok := value.(repo.User)
@@ -54,10 +55,10 @@ func (s *svc) ListFoldersByUserId(ctx context.Context, userId int64) ([]repo.Lis
 
 func (s *svc) CreateFolder(ctx context.Context, newFolder repo.CreateFolderParams) (repo.UserFolder, error) {
 	if newFolder.Name == "" {
-		return repo.UserFolder{}, fmt.Errorf("UserFolder name is required")
+		return repo.UserFolder{}, fmt.Errorf("folder name is required")
 	}
 
-	value := ctx.Value("user")
+	value := ctx.Value(contextkeys.UserKey)
 	if value == nil {
 		return repo.UserFolder{}, fmt.Errorf("session invalid")
 	}
@@ -73,7 +74,9 @@ func (s *svc) CreateFolder(ctx context.Context, newFolder repo.CreateFolderParam
 	}
 	defer func() {
 		if err != nil {
-			tx.Rollback(ctx)
+			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
+				log.Printf("rollback failed: %v", rollbackErr)
+			}
 		}
 	}()
 
