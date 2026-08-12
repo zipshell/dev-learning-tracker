@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -31,7 +30,7 @@ var validate = validator.New()
 
 func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
 	var params UserCredentials
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+	if err := jsonutil.Read(r, &params); err != nil {
 		jsonutil.Write(w, http.StatusBadRequest, map[string]string{
 			"error": "Invalid request body",
 		})

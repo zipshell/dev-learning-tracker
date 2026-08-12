@@ -1,7 +1,6 @@
 package folders
 
 import (
-	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -47,7 +46,7 @@ func (h *handler) ListFoldersByUserId(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) CreateFolder(w http.ResponseWriter, r *http.Request) {
 	var params repo.CreateFolderParams
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+	if err := jsonutil.Read(r, &params); err != nil {
 		jsonutil.Write(w, http.StatusBadRequest, map[string]string{
 			"error": "Invalid request body",
 		})

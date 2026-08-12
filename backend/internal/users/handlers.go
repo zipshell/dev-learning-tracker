@@ -6,7 +6,9 @@ import (
 	"log"
 	"net/http"
 	"net/mail"
+	"strconv"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 	repo "github.com/zipshell/dev-learning-tracker/internal/adapters/postgresql/sqlc"
 	"github.com/zipshell/dev-learning-tracker/internal/jsonutil"
@@ -66,7 +68,22 @@ func (h *handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) GetUserInfo(w http.ResponseWriter, r *http.Request) {
-	userInfo, err := h.service.GetUserInfo(r.Context())
+	userIdString := chi.URLParam(r, "user_id")
+	userId := int64(0)
+	if userIdString == "me" {
+		userId = 0
+	} else {
+		parsedUserID, err := strconv.ParseInt(userIdString, 10, 64)
+		if err != nil {
+			jsonutil.Write(w, http.StatusBadRequest, map[string]string{
+				"error": "Invalid user id",
+			})
+			return
+		}
+		userId = parsedUserID
+	}
+
+	userInfo, err := h.service.GetUserInfo(r.Context(), userId)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
 			http.NotFound(w, r)
@@ -81,7 +98,31 @@ func (h *handler) GetUserInfo(w http.ResponseWriter, r *http.Request) {
 func (h *handler) UpdateUserInfo(w http.ResponseWriter, r *http.Request) {
 	var params repo.UpdateUserByIdParams
 
+	userIdString := chi.URLParam(r, "user_id")
+	userId := int64(0)
+	if userIdString == "me" {
+		userId = 0
+	} else {
+		parsedUserID, err := strconv.ParseInt(userIdString, 10, 64)
+		if err != nil {
+			jsonutil.Write(w, http.StatusBadRequest, map[string]string{
+				"error": "Invalid user id",
+			})
+			return
+		}
+		userId = parsedUserID
+	}
+
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		jsonutil.Write(w, http.StatusBadRequest, map[string]string{
+			"error": "Invalid request body",
+		})
+		return
+	}
+
+	if params.ID == 0 {
+		params.ID = int64(userId)
+	} else if params.ID != int64(userId) {
 		jsonutil.Write(w, http.StatusBadRequest, map[string]string{
 			"error": "Invalid request body",
 		})

@@ -16,7 +16,7 @@ import (
 
 type UserService interface {
 	CreateUser(ctx context.Context, newUser repo.CreateUserParams) error
-	GetUserInfo(ctx context.Context) (UserInfo, error)
+	GetUserInfo(ctx context.Context, userId int64) (UserInfo, error)
 	UpdateUserInfo(ctx context.Context, updateInfo repo.UpdateUserByIdParams) (UserInfo, error)
 	DeleteUser(ctx context.Context) error
 }
@@ -93,7 +93,7 @@ func (s *svc) CreateUser(ctx context.Context, newUser repo.CreateUserParams) err
 	return nil
 }
 
-func (s *svc) GetUserInfo(ctx context.Context) (UserInfo, error) {
+func (s *svc) GetUserInfo(ctx context.Context, userId int64) (UserInfo, error) {
 	value := ctx.Value("user")
 	if value == nil {
 		log.Println("No user info found that matches the session")

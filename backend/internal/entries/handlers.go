@@ -1,7 +1,6 @@
 package entries
 
 import (
-	"encoding/json"
 	"net/http"
 
 	repo "github.com/zipshell/dev-learning-tracker/internal/adapters/postgresql/sqlc"
@@ -20,7 +19,7 @@ func NewEntryHandler(svc EntryService) *handler {
 
 func (h *handler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 	var params repo.CreateEntryParams
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+	if err := jsonutil.Read(r, &params); err != nil {
 		jsonutil.Write(w, http.StatusBadRequest, map[string]string{
 			"error": "Invalid request body",
 		})
